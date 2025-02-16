@@ -12,10 +12,10 @@ import java.util.List;
 @JsonInclude(value = JsonInclude.Include.NON_NULL)
 public class QuizDTO {
 
-    @NotNull(message = "userId is mandatory")
+    @NotNull(message = "userId is mandatory", groups = {GetQuizGroup.class, SubmitQuizGroup.class, ViewQuizGroup.class} )
     private Integer userId;
 
-    @NotNull(message = "testId is mandatory")
+    @NotNull(message = "testId is mandatory", groups = {SubmitQuizGroup.class, ViewQuizGroup.class})
     private Integer testId;
 
     private Double score;

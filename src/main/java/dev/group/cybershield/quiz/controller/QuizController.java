@@ -27,7 +27,7 @@ public class QuizController {
     private final QuizService quizService;
 
     @PostMapping("/v1.0/getQuiz")
-    public ResponseEntity<ResponseDTO> getQuiz(@RequestBody @Validated QuizDTO reqBody) throws Exception {
+    public ResponseEntity<ResponseDTO> getQuiz(@RequestBody @Validated({QuizDTO.GetQuizGroup.class}) QuizDTO reqBody) throws Exception {
         try {
             String endPoint = "getTest";
             Timestamp landingTime = Timestamp.valueOf(LocalDateTime.now());
@@ -41,7 +41,7 @@ public class QuizController {
     }
 
     @PostMapping("/v1.0/submitQuiz")
-    public ResponseEntity<ResponseDTO> submitQuiz(@RequestBody @Validated({QuizDTO.SubmitQuizGroup.class, Default.class}) QuizDTO reqBody) throws Exception {
+    public ResponseEntity<ResponseDTO> submitQuiz(@RequestBody @Validated({QuizDTO.SubmitQuizGroup.class}) QuizDTO reqBody) throws Exception {
         try {
             String endPoint = "submitTest";
             Timestamp landingTime = Timestamp.valueOf(LocalDateTime.now());
@@ -55,7 +55,7 @@ public class QuizController {
     }
 
     @PostMapping("/v1.0/viewQuiz")
-    public ResponseEntity<ResponseDTO> viewQuiz(@RequestBody @Validated QuizDTO reqBody) throws Exception {
+    public ResponseEntity<ResponseDTO> viewQuiz(@RequestBody @Validated({QuizDTO.ViewQuizGroup.class}) QuizDTO reqBody) throws Exception {
         try {
             String endPoint = "viewTest";
             Timestamp landingTime = Timestamp.valueOf(LocalDateTime.now());
