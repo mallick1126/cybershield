@@ -18,7 +18,7 @@ public class TestMaster extends BaseEntity {
     @Column(name = "user_id")
     public Integer userId;
 
-    public Integer score; // can be null
+    public Double score; // can be null
 
     public String category;
 

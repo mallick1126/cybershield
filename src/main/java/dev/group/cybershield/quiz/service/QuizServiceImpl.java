@@ -15,7 +15,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -39,7 +38,7 @@ public class QuizServiceImpl implements QuizService {
     private UsersRepo usersRepo;
 
     @Value("${number.of.question.in.quiz}")
-    private Integer quizQuestionsCount;
+    private Integer totalQuizQuestionsCount;
 
     @Override
     public QuizDTO getQuiz(QuizDTO reqBody) throws Exception {
@@ -60,19 +59,90 @@ public class QuizServiceImpl implements QuizService {
     }
 
     @Override
-    public QuizDTO generateQuiz(Integer userId) throws Exception {
+    @Transactional
+    public QuizDTO submitQuiz(QuizDTO reqBody) throws Exception {
+        try {
+            log.info("submitTest_Service_reqBody : {}", reqBody);
+            int correctQuestionCount = 0;
+            QuizDTO submitQuiz = new QuizDTO();
+
+            Optional<TestMaster> testOpt = testMasterRepo.findById(reqBody.getTestId());
+            if (testOpt.isEmpty()) {
+                throw new BadRequestException("Quiz does not exist !");
+            }
+
+            TestMaster test = testOpt.get();
+            if (test.getTestStatus().equalsIgnoreCase(QuizConstants.TEST_STATUS_COMPLETED)) {
+                throw new BadRequestException("Quiz already submitted !");
+            }
+
+            // get all question form test question map by test id and update its user_answer_id and save again
+            List<TestQuestionMap> questionsToBeSubmitted = testQuestionMapRepo.findByTestId(reqBody.getTestId());
+            List<Integer> questionIds = questionsToBeSubmitted.stream().map(TestQuestionMap::getQuestionId).toList();
+            List<Answers> correctAnswersForAllQuestionsToBeSubmitted = answersRepo.findByQuestionIdInAndIsCorrect(questionIds, QuizConstants.CORRECT_ANSWERS);
+
+            for (TestQuestionMap questionToSubmit : questionsToBeSubmitted) {
+                Optional<QuestionDTO> givenQuestionOpt = reqBody.getQuestionsList().stream().filter(que -> que.getQuestionId().equals(questionToSubmit.getQuestionId())).findFirst();
+                if (givenQuestionOpt.isPresent()) {
+                    QuestionDTO givenQuestion = givenQuestionOpt.get();
+                    questionToSubmit.setUsersAnswerId(givenQuestion.getSelectedOptionId());
+                    Optional<Answers> correctAnswersOpt = correctAnswersForAllQuestionsToBeSubmitted.stream().filter(ans -> ans.getQuestionId().equals(givenQuestion.getQuestionId())).findFirst();
+                    if (correctAnswersOpt.isPresent() && correctAnswersOpt.get().getAnswerId().equals(givenQuestion.getSelectedOptionId()))
+                        correctQuestionCount++;
+                }
+            }
+            testQuestionMapRepo.saveAll(questionsToBeSubmitted);
+
+            double score = ((double) correctQuestionCount / totalQuizQuestionsCount) * 100.00;
+            submitQuiz.setScore(score);
+
+            if (score >= 80.00) {
+                submitQuiz.setGrade(QuizConstants.TEST_PASSED);
+            } else {
+                submitQuiz.setGrade(QuizConstants.TEST_FAILED);
+            }
+
+            test.setScore(score);
+            test.setTestStatus(QuizConstants.TEST_STATUS_COMPLETED);
+            testMasterRepo.save(test);
+            return submitQuiz;
+        } catch (Exception e) {
+            log.error("submitTest_Service_Error: {}", e.getMessage());
+            throw new Exception(e);
+        }
+    }
+
+    @Override
+    public QuizDTO viewQuiz(QuizDTO reqBody) throws Exception {
+        Optional<Users> userOpt = usersRepo.findById(reqBody.getUserId());
+        Users user = userOpt.orElseThrow(() -> new BadRequestException("User not found !"));
+
+        QuizDTO viewQuiz = findQuizById(reqBody.getTestId(), true);
+
+        if (viewQuiz.getUserId() != user.getUserId())
+            throw new BadRequestException("Quiz is not assigned to this user");
+
+        return findQuizById(reqBody.getTestId(), true);
+    }
+
+    @Transactional
+    private QuizDTO generateQuiz(Integer userId) throws Exception {
         try {
             log.info("generateQuiz_Service userId:{}", userId);
 
             QuizDTO quiz = new QuizDTO();
             usersRepo.findById(userId).ifPresentOrElse(
-                    (user)-> {quiz.setUserId(user.getUserId());} ,
-                    ()-> {throw new BadRequestException("User does not exist !");}
+                    (user) -> {
+                        quiz.setUserId(user.getUserId());
+                    },
+                    () -> {
+                        throw new BadRequestException("User does not exist !");
+                    }
             );
 
             // generateQuiz from QUESTIONS
             List<QuestionDTO> questionDTOList = new ArrayList<>();
-            List<Questions> questionList = questionsRepo.getRandomQuestions(quizQuestionsCount);
+            List<Questions> questionList = questionsRepo.getRandomQuestions(totalQuizQuestionsCount);
             List<Integer> questionIds = questionList.stream().map(Questions::getQuestionId).toList();
             List<Answers> answersListForAllQuestions = answersRepo.findByQuestionIdInAndStatus(questionIds, CommonConstants.STATUS_A);
 
@@ -139,73 +209,23 @@ public class QuizServiceImpl implements QuizService {
         }
     }
 
-    @Override
-    @Transactional
-    public QuizDTO submitQuiz(QuizDTO reqBody) throws Exception {
-        try {
-            log.info("submitTest_Service_reqBody : {}", reqBody);
-            int score = 0;
-            QuizDTO submitTest = new QuizDTO();
-
-            Optional<TestMaster> testOpt = testMasterRepo.findById(reqBody.getTestId());
-            if (testOpt.isEmpty()) {
-                throw new BadRequestException("Quiz does not exist !");
-            }
-
-            TestMaster test = testOpt.get();
-            if (test.getTestStatus().equalsIgnoreCase(QuizConstants.TEST_STATUS_COMPLETED)) {
-                throw new BadRequestException("Quiz already submitted !");
-            }
-
-            // get all question form test question map by test id and update its user_answer_id and save again
-            List<TestQuestionMap> questionsToBeSubmitted = testQuestionMapRepo.findByTestId(reqBody.testId);
-            List<Integer> questionIds = questionsToBeSubmitted.stream().map(TestQuestionMap::getQuestionId).toList();
-            List<Answers> correctAnswersForAllQuestionsToBeSubmitted = answersRepo.findByQuestionIdInAndIsCorrect(questionIds, QuizConstants.CORRECT_ANSWERS);
-
-            for (TestQuestionMap questionToSubmit : questionsToBeSubmitted) {
-                Optional<QuestionDTO> givenQuestionOpt = reqBody.getQuestionsList().stream().filter(que -> que.getQuestionId().equals(questionToSubmit.getQuestionId())).findFirst();
-                if (givenQuestionOpt.isPresent()) {
-                    QuestionDTO givenQuestion = givenQuestionOpt.get();
-                    questionToSubmit.setUsersAnswerId(givenQuestion.getSelectedOptionId());
-                    Optional<Answers> correctAnswersOpt = correctAnswersForAllQuestionsToBeSubmitted.stream().filter(ans -> ans.getQuestionId().equals(givenQuestion.getQuestionId())).findFirst();
-                    if (correctAnswersOpt.isPresent() && correctAnswersOpt.get().getAnswerId().equals(givenQuestion.getSelectedOptionId())) score += 10;
-                }
-            }
-            testQuestionMapRepo.saveAll(questionsToBeSubmitted);
-            submitTest.setScore(score);
-
-            if (score >= 80) {
-                submitTest.setGrade(QuizConstants.TEST_PASSED);
-            } else {
-                submitTest.setGrade(QuizConstants.TEST_FAILED);
-            }
-
-            test.setScore(score);
-            test.setTestStatus(QuizConstants.TEST_STATUS_COMPLETED);
-            testMasterRepo.save(test);
-            return submitTest;
-        } catch (Exception e) {
-            log.error("submitTest_Service_Error: {}", e.getMessage());
-            throw new Exception(e);
-        }
-    }
-
     @SneakyThrows
-    @Override
-    public QuizDTO findQuizById(Integer quizId, boolean isView) {
+    private QuizDTO findQuizById(Integer quizId, boolean isView) {
         try {
             log.info("findQuizById {}", quizId);
-            QuizDTO viewTest = new QuizDTO();
+            QuizDTO quiz = new QuizDTO();
 
             Optional<TestMaster> quizTobeViewedOpt = testMasterRepo.findById(quizId);
             if (quizTobeViewedOpt.isPresent()) {
                 // prepare data for the viewQuiz response
                 List<TestQuestionMap> questionsOfQuiz = testQuestionMapRepo.findByTestId(quizId);
                 List<Integer> questionIds = questionsOfQuiz.stream().map(TestQuestionMap::getQuestionId).toList();
-                List<Integer> answersIds = questionsOfQuiz.stream().map(que -> List.of(que.getGivenOption1(), que.getGivenOption2(), que.getGivenOption3(), que.getGivenOption4())).reduce(new ArrayList<>(), (accumulator, current) -> {
-                    accumulator.addAll(current);
-                    return accumulator;
-                });
+                List<Integer> answersIds = questionsOfQuiz.stream()
+                        .map(que -> List.of(que.getGivenOption1(), que.getGivenOption2(), que.getGivenOption3(), que.getGivenOption4()))
+                        .reduce(new ArrayList<>(), (accumulator, current) -> {
+                            accumulator.addAll(current);
+                            return accumulator;
+                        });
                 List<Questions> questions = questionsRepo.findAllById(questionIds);
                 List<Answers> answers = answersRepo.findAllById(answersIds);
                 Map<Integer, Questions> questionsMap = questions.stream().collect(Collectors.toMap(que -> que.getQuestionId(), que -> que));
@@ -213,9 +233,9 @@ public class QuizServiceImpl implements QuizService {
 
                 // start preparing viewQuiz response
                 TestMaster quizTobeViewed = quizTobeViewedOpt.get();
-                viewTest.setUserId(quizTobeViewed.getUserId());
-                viewTest.setTestId(quizTobeViewed.getTestId());
-                viewTest.setScore(quizTobeViewed.getScore());
+                quiz.setUserId(quizTobeViewed.getUserId());
+                quiz.setTestId(quizTobeViewed.getTestId());
+                quiz.setScore(quizTobeViewed.getScore());
                 List<QuestionDTO> questionDTOList = new ArrayList<>();
                 for (TestQuestionMap question : questionsOfQuiz) {
                     QuestionDTO questionDTO = new QuestionDTO();
@@ -241,14 +261,15 @@ public class QuizServiceImpl implements QuizService {
                     questionDTO.setOptions(optionDTOList);
                     questionDTOList.add(questionDTO);
                 }
-                viewTest.setQuestionsList(questionDTOList);
+                quiz.setQuestionsList(questionDTOList);
             } else {
                 throw new BadRequestException("Quiz does not exist !");
             }
-            return viewTest;
+            return quiz;
         } catch (Exception e) {
             log.error("findQuizById Service Error {}", e.getMessage());
             throw e;
         }
     }
+
 }

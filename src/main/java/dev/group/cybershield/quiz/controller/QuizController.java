@@ -4,6 +4,7 @@ import dev.group.cybershield.common.global.ResponseDTO;
 import dev.group.cybershield.common.utils.ResponseUtil;
 import dev.group.cybershield.quiz.model.QuizDTO;
 import dev.group.cybershield.quiz.service.QuizService;
+import jakarta.validation.groups.Default;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
@@ -26,12 +27,12 @@ public class QuizController {
     private final QuizService quizService;
 
     @PostMapping("/v1.0/getQuiz")
-    public ResponseEntity<ResponseDTO> getQuiz(@RequestBody @Validated({QuizDTO.GetQuizGroup.class}) QuizDTO reqBody) throws Exception {
+    public ResponseEntity<ResponseDTO> getQuiz(@RequestBody @Validated QuizDTO reqBody) throws Exception {
         try {
             String endPoint = "getTest";
             Timestamp landingTime = Timestamp.valueOf(LocalDateTime.now());
             QuizDTO response = quizService.getQuiz(reqBody);
-            log.info("gtTest_API {}", response);
+            log.info("getTest_API {}", response);
             return ResponseUtil.sendResponse(response, landingTime, HttpStatus.OK, endPoint);
         } catch (Exception e) {
             log.error("unable_to_load_test_getTest_API: {}", e.getMessage());
@@ -40,7 +41,7 @@ public class QuizController {
     }
 
     @PostMapping("/v1.0/submitQuiz")
-    public ResponseEntity<ResponseDTO> submitQuiz(@RequestBody @Validated({QuizDTO.SubmitQuizGroup.class}) QuizDTO reqBody) throws Exception {
+    public ResponseEntity<ResponseDTO> submitQuiz(@RequestBody @Validated({QuizDTO.SubmitQuizGroup.class, Default.class}) QuizDTO reqBody) throws Exception {
         try {
             String endPoint = "submitTest";
             Timestamp landingTime = Timestamp.valueOf(LocalDateTime.now());
@@ -58,7 +59,7 @@ public class QuizController {
         try {
             String endPoint = "viewTest";
             Timestamp landingTime = Timestamp.valueOf(LocalDateTime.now());
-            QuizDTO response = quizService.findQuizById(reqBody.getTestId(), true);
+            QuizDTO response = quizService.viewQuiz(reqBody);
             log.info("viewTest_API {}", response);
             return ResponseUtil.sendResponse(response, landingTime, HttpStatus.OK, endPoint);
         } catch (Exception e) {

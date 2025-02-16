@@ -12,13 +12,13 @@ import java.util.List;
 @JsonInclude(value = JsonInclude.Include.NON_NULL)
 public class QuizDTO {
 
-    @NotNull(message = "userId is mandatory", groups = {GetQuizGroup.class, SubmitQuizGroup.class})
-    public Integer userId;
+    @NotNull(message = "userId is mandatory")
+    private Integer userId;
 
     @NotNull(message = "testId is mandatory")
-    public Integer testId;
+    private Integer testId;
 
-    private Integer score;
+    private Double score;
 
     private String grade;
 

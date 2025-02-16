@@ -21,11 +21,10 @@ import java.util.stream.Collectors;
 public class GlobalExceptionHandler {
 
     private void logExceptions(Exception e, HttpServletRequest request) {
-        String str = CommonConstants.EXCEPTION_AT_STR + request.getRequestURI()
-                + CommonConstants.EXCEPTION_MSG_STR + e.getMessage()
-                + CommonConstants.EXCEPTION_TRACE_STR + Arrays.toString(e.getStackTrace());
+        log.error(CommonConstants.EXCEPTION_AT_STR + "{}", request.getRequestURI());
+        log.error(CommonConstants.EXCEPTION_MSG_STR + "{}", e.getMessage());
+        log.error(CommonConstants.EXCEPTION_TRACE_STR + "{}", Arrays.toString(e.getStackTrace()));
         e.printStackTrace();
-        log.error(str);
     }
 
     @ExceptionHandler(BadRequestException.class)
