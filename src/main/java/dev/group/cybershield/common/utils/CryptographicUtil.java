@@ -9,7 +9,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 
 @Slf4j
-public class SecurityUtil {
+public class CryptographicUtil {
     public static final String symmetricKey = "5/CnXPJP/8ndR8D7OoV8Bc8xlqymfX31vRxrm1zeavQ=";
     public static final String symmetricAlgoWithPadding = "AES/ECB/PKCS5Padding";
     public static final String symmetricAlgo = "AES";
